@@ -1,46 +1,70 @@
-import React, { useRef, useEffect } from 'react';
-import WebViewer from '@pdftron/webviewer';
-import './App.css';
+import React, { useRef, useEffect } from "react";
+import WebViewer from "@pdftron/webviewer";
+import "./App.css";
 
 const App = () => {
   const viewer = useRef(null);
+  const instanceRef = useRef(null);
 
-  // if using a class, equivalent of componentDidMount 
   useEffect(() => {
-    // If you prefer to use the Iframe implementation, you can replace this line with: WebViewer.Iframe(...)
     WebViewer.WebComponent(
       {
-        path: '/webviewer/lib',
-        initialDoc: '/files/PDFTRON_about.pdf',
-        licenseKey: 'your_license_key',  // sign up to get a free trial key at https://dev.apryse.com
+        path: "/webviewer/lib",
+        initialDoc: "/files/checkbox.pdf",
+        licenseKey: "your_license_key",
       },
-      viewer.current,
+      viewer.current
     ).then((instance) => {
-      const { documentViewer, annotationManager, Annotations } = instance.Core;
+      instanceRef.current = instance;
 
-      documentViewer.addEventListener('documentLoaded', () => {
-        const rectangleAnnot = new Annotations.RectangleAnnotation({
-          PageNumber: 1,
-          // values are in page coordinates with (0, 0) in the top left
-          X: 100,
-          Y: 150,
-          Width: 200,
-          Height: 50,
-          Author: annotationManager.getCurrentUser()
+      const { documentViewer, annotationManager } = instance.Core;
+
+      documentViewer.addEventListener("annotationsLoaded", () => {
+        const annotationsList = annotationManager.getAnnotationsList();
+
+        annotationsList.forEach((annotParam) => {
+          const annot = annotParam;
+          annot.ReadOnly = false;
+          // It the same when using "true"
+          // annot.ReadOnly = true;
         });
-
-        annotationManager.addAnnotation(rectangleAnnot);
-        // need to draw the annotation otherwise it won't show up until the page is refreshed
-        annotationManager.redrawAnnotation(rectangleAnnot);
       });
     });
   }, []);
 
+  const handleSave = () => {
+    const instance = instanceRef.current;
+    const { documentViewer, annotationManager } = instance.Core;
+
+    return Promise.all([
+      annotationManager.exportAnnotations(),
+      documentViewer.getDocument(),
+    ])
+      .then(([xfdfString, document]) =>
+        document.getFileData({
+          xfdfString,
+        })
+      )
+      .then((buffer) => {
+        const arr = new Uint8Array(buffer);
+        const data = new Blob([arr], {
+          type: "application/pdf",
+        });
+        const file = new File([data], "checkbox.pdf");
+
+        instance.UI.loadDocument(file);
+      });
+  };
+
   return (
-    <div className="App">
-      <div className="header">React sample</div>
-      <div className="webviewer" ref={viewer}></div>
-    </div>
+    <>
+      <div className="App">
+        <div className="header">
+          React sample <button onClick={handleSave}>Save</button>
+        </div>
+        <div className="webviewer" ref={viewer}></div>
+      </div>
+    </>
   );
 };
 
