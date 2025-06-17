@@ -138,10 +138,15 @@ const App = () => {
   }, [addField]);
 
   const handleSignClick = useCallback(async () => {
-    const { documentViewer, annotationManager } = instance.current.Core;
+    const { documentViewer, annotationManager, Tools } = instance.current.Core;
     const signatureTool = documentViewer.getTool(
       "AnnotationCreateSignature"
     ) as Core.Tools.SignatureCreateTool & { location: object };
+
+    // Set signing mode to ANNOTATION as per PDFTron support
+    signatureTool.setSigningMode(
+      Tools.SignatureCreateTool.SigningModes.ANNOTATION
+    );
 
     const [signatureField] = annotationManager.getAnnotationsList();
 
@@ -165,6 +170,7 @@ const App = () => {
       annotationManager.redrawAnnotation(signatureAnnotation);
       console.log("Setting associated signature annotation");
       signatureWidget.setAssociatedSignatureAnnotation(signatureAnnotation);
+      console.log(signatureWidget.getAssociatedSignatureAnnotation());
     };
 
     const handleSignatureReady = (
@@ -239,6 +245,29 @@ const App = () => {
     console.log(signatureField.getAssociatedSignatureAnnotation());
   }, []);
 
+  const handleSave = useCallback(async () => {
+    const { documentViewer, annotationManager } = instance.current.Core;
+
+    return Promise.all([
+      annotationManager.exportAnnotations(),
+      documentViewer.getDocument(),
+    ])
+      .then(([xfdfString, document]) =>
+        document.getFileData({
+          xfdfString,
+        })
+      )
+      .then((buffer) => {
+        const arr = new Uint8Array(buffer);
+        const data = new Blob([arr], {
+          type: "application/pdf",
+        });
+        const file = new File([data], "checkbox.pdf");
+
+        instance.current.UI.loadDocument(file);
+      });
+  }, []);
+
   return (
     <>
       <div className="App">
@@ -255,6 +284,7 @@ const App = () => {
               Check getAssociatedSignatureAnnotation
             </button>
           )}
+          <button onClick={handleSave}>Save</button>
         </div>
         <div className="webviewer" ref={viewer}></div>
       </div>
