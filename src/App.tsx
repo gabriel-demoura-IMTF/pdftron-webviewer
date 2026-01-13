@@ -1,10 +1,12 @@
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import WebViewer from "@pdftron/webviewer";
 import "./App.css";
 
 const App = () => {
   const viewer = useRef(null);
   const instanceRef = useRef(null);
+
+  const [hasRefreshed, setHasRefreshed] = useState(false);
 
   const getCurrentToolbarGroup = useCallback(
     () =>
@@ -113,6 +115,12 @@ const App = () => {
 
       documentViewer.addEventListener("pageComplete", () => {
         handleToolbarGroupChange();
+
+        if (!hasRefreshed) {
+          // We need to refresh one time after initializing the viewer to avoid pdf forms to be editable when in view mode
+          documentViewer.refreshAll();
+          setHasRefreshed(false);
+        }
       });
 
       // We need to wait for annotations to be able to know if we should display the collect signature custom button
