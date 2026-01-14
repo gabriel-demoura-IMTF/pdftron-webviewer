@@ -6,7 +6,7 @@ const App = () => {
   const viewer = useRef(null);
   const instanceRef = useRef(null);
 
-  const [hasRefreshed, setHasRefreshed] = useState(false);
+  const hasRefreshedRef = useRef(false);
 
   const getCurrentToolbarGroup = useCallback(
     () =>
@@ -26,6 +26,7 @@ const App = () => {
         const fields = fieldManager.getFields();
         const annotationsList = annotationManager.getAnnotationsList();
         const currentToolbarGroup = e?.detail || getCurrentToolbarGroup();
+        // const { WidgetFlags } = instanceRef.current.Core.Annotations;
 
         const isViewModeEnabled = currentToolbarGroup === ToolbarGroup.VIEW;
 
@@ -47,8 +48,10 @@ const App = () => {
             } else {
               if (isViewModeEnabled) {
                 widget.ReadOnly = true;
+                // widget.fieldFlags.set(WidgetFlags.READ_ONLY, true);
               } else {
                 widget.ReadOnly = false;
+                // widget.fieldFlags.set(WidgetFlags.READ_ONLY, false);
               }
             }
             // Disables tabs
@@ -115,11 +118,10 @@ const App = () => {
 
       documentViewer.addEventListener("pageComplete", () => {
         handleToolbarGroupChange();
-
-        if (!hasRefreshed) {
+        if (!hasRefreshedRef.current) {
           // We need to refresh one time after initializing the viewer to avoid pdf forms to be editable when in view mode
           documentViewer.refreshAll();
-          setHasRefreshed(false);
+          hasRefreshedRef.current = true;
         }
       });
 
