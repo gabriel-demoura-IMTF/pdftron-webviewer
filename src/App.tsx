@@ -1,70 +1,76 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import WebViewer from "@pdftron/webviewer";
 import "./App.css";
 
 const App = () => {
-  const viewer = useRef(null);
-  const instanceRef = useRef(null);
+  const viewer = useRef<HTMLDivElement>(null);
+  const instanceRef = useRef<any>(null);
+  const [ready, setReady] = useState(false);
+  const [mode, setMode] = useState<"annotate" | "view">("annotate");
 
   useEffect(() => {
     WebViewer.WebComponent(
       {
         path: "/webviewer/lib",
-        initialDoc: "/files/checkbox.pdf",
+        initialDoc: "/files/readonly-form-bug.pdf",
+        fullAPI: true,
         licenseKey: "your_license_key",
       },
-      viewer.current
+      viewer.current as HTMLDivElement,
     ).then((instance) => {
       instanceRef.current = instance;
-
-      const { documentViewer, annotationManager } = instance.Core;
-
-      documentViewer.addEventListener("annotationsLoaded", () => {
-        const annotationsList = annotationManager.getAnnotationsList();
-
-        annotationsList.forEach((annotParam) => {
-          const annot = annotParam;
-          annot.ReadOnly = false;
-          // It the same when using "true"
-          // annot.ReadOnly = true;
-        });
+      // Exposed for console debugging (e.g. window.__wvInstance.Core).
+      (window as any).__wvInstance = instance;
+      instance.Core.documentViewer.addEventListener("annotationsLoaded", () => {
+        setReady(true);
+        setMode("annotate");
       });
     });
   }, []);
 
-  const handleSave = () => {
-    const instance = instanceRef.current;
-    const { documentViewer, annotationManager } = instance.Core;
+  // Replicates handleToolbarGroupChange(): flag every field widget read-only
+  // (and every annotation), exactly like switching to the View toolbar group.
+  const setReadOnly = (readOnly: boolean) => {
+    const { annotationManager, Annotations } = instanceRef.current.Core;
+    const fm = annotationManager.getFieldManager();
 
-    return Promise.all([
-      annotationManager.exportAnnotations(),
-      documentViewer.getDocument(),
-    ])
-      .then(([xfdfString, document]) =>
-        document.getFileData({
-          xfdfString,
-        })
-      )
-      .then((buffer) => {
-        const arr = new Uint8Array(buffer);
-        const data = new Blob([arr], {
-          type: "application/pdf",
-        });
-        const file = new File([data], "checkbox.pdf");
+    fm.getFields().forEach((field: any) =>
+      field.widgets?.forEach((w: any) =>
+        w.fieldFlags.set(Annotations.WidgetFlags.READ_ONLY, readOnly),
+      ),
+    );
+    annotationManager.getAnnotationsList().forEach((annot: any) => {
+      annot.ReadOnly = readOnly;
+      if (annot instanceof Annotations.WidgetAnnotation && annot.element) {
+        if (readOnly) annot.element.style.setProperty("pointer-events", "none");
+        else annot.element.style.removeProperty("pointer-events");
+      }
+    });
 
-        instance.UI.loadDocument(file);
-      });
+    setMode(readOnly ? "view" : "annotate");
   };
 
+  const disabled = !ready;
+
   return (
-    <>
-      <div className="App">
-        <div className="header">
-          React sample <button onClick={handleSave}>Save</button>
-        </div>
-        <div className="webviewer" ref={viewer}></div>
+    <div className="App">
+      <div className="bar">
+        <button
+          onClick={() => setReadOnly(true)}
+          disabled={disabled || mode === "view"}
+        >
+          Switch to View mode (read-only)
+        </button>
+        <button
+          onClick={() => setReadOnly(false)}
+          disabled={disabled || mode === "annotate"}
+        >
+          Switch to Annotate mode (editable)
+        </button>
       </div>
-    </>
+
+      <div className="webviewer" ref={viewer}></div>
+    </div>
   );
 };
 

@@ -44,6 +44,7 @@
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@vitejs/plugin-react": "^4.3.4",
     "jsdom": "^25.0.1",
+    "pdf-lib": "^1.17.1",
     "vite": "^6.0.3",
     "vitest": "^2.1.8"
   }
